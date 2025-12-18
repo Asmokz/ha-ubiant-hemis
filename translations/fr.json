@@ -1,0 +1,18 @@
+{
+  "config": {
+    "error": {
+      "cannot_connect": "Impossible de se connecter à l'API Hemis. Vérifie base_url, Building-Id et token."
+    },
+    "step": {
+      "user": {
+        "title": "Ubiant Hemis (Flexom)",
+        "description": "Renseigne l'URL Hemis base, le Building-Id, et un token Bearer.",
+        "data": {
+          "base_url": "Hemis base URL (…/hemis/rest)",
+          "building_id": "Building-Id",
+          "token": "Bearer token"
+        }
+      }
+    }
+  }
+}

@@ -26,6 +26,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         base_url=entry.data[CONF_BASE_URL],
         building_id=entry.data[CONF_BUILDING_ID],
         token=entry.data[CONF_TOKEN],
+        email=entry.data["email"],
+        password=entry.data["password"],
         session=session,
     )
 

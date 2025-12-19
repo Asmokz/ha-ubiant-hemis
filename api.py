@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 from dataclasses import dataclass
+from importlib.resources import path
 from typing import Any
 import urllib.parse
 
@@ -14,10 +15,16 @@ class HemisApiError(Exception):
 
 @dataclass
 class HemisClient:
-    base_url: str              # ex: https://.../hemis/rest
-    building_id: str           # header Building-Id
-    token: str                 # Bearer token
+    base_url: str
+    building_id: str
+    token: str
     session: aiohttp.ClientSession
+    email: str
+    password: str
+
+    def __post_init__(self) -> None:
+        self._auth_lock = asyncio.Lock()
+    
 
     def _headers(self) -> dict[str, str]:
         return {
@@ -25,12 +32,35 @@ class HemisClient:
             "Building-Id": self.building_id,
             "Accept": "application/json",
         }
+    
+
+    async def _authenticate(self) -> None:
+        async with self._auth_lock:
+            async with self.session.post(
+                "https://hemisphere.ubiant.com/users/signin",
+                json={
+                    "email": self.email,
+                    "password": self.password,
+                },
+                timeout=aiohttp.ClientTimeout(total=20),
+            ) as resp:
+                text = await resp.text()
+                if resp.status >= 400:
+                    raise HemisApiError(f"Auth failed: {resp.status} {text[:200]}")
+
+                data = await resp.json()
+                # ⚠️ adapte la clé si nécessaire (token / accessToken)
+                self.token = data["token"]
 
     async def _get_json(self, path: str) -> Any:
         url = f"{self.base_url.rstrip('/')}/{path.lstrip('/')}"
         try:
             async with self.session.get(url, headers=self._headers(), timeout=aiohttp.ClientTimeout(total=20)) as resp:
                 text = await resp.text()
+                if resp.status == 401:
+                    await self._authenticate()
+                    return await self._get_json(path)
+
                 if resp.status >= 400:
                     raise HemisApiError(f"GET {url} -> {resp.status}: {text[:300]}")
                 # Certains endpoints peuvent renvoyer text/plain; on force json
@@ -67,6 +97,12 @@ class HemisClient:
                 timeout=aiohttp.ClientTimeout(total=20),
             ) as resp:
                 text = await resp.text()
+                if resp.status == 401:
+                    await self._authenticate()
+                    return await self.set_actuator_value(
+                        it_id, actuator_id, value, duration_ms
+                    )
+
                 if resp.status >= 400:
                     raise HemisApiError(f"PUT {url} -> {resp.status}: {text[:300]}")
         except asyncio.TimeoutError as e:

@@ -21,6 +21,8 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                         vol.Required(CONF_BASE_URL): str,
                         vol.Required(CONF_BUILDING_ID): str,
                         vol.Required(CONF_TOKEN): str,
+                        vol.Required("colindu1998@hotmail.fr"): str,
+                        vol.Required("dee4seiCdtr77f5D"): str,
                     }
                 ),
             )

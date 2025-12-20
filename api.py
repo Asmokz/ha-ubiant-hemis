@@ -77,14 +77,24 @@ class HemisClient:
         return await self._get_json("/intelligent-things/actuators")
 
     # ⚠️ ACTIONS: on met un stub propre, à compléter quand tu confirmes l’endpoint.
-    async def set_actuator_value(self, it_id: str, actuator_id: str, value: float, duration_ms: int = 30000) -> None:
+    async def set_actuator_value(
+        self,
+        it_id: str,
+        actuator_id: str,
+        value: float,
+        duration_ms: int = 30000,
+    ) -> None:
         """
         PUT /intelligent-things/{itId}/actuator/{actuatorId}/state
         - itId doit être URL-encodé (contient : et %)
-        - value: pour volets Hemis chez toi => 0..1
+        - actuatorId peut contenir # (=> doit être encodé sinon 405)
+        - value:
+            - volets: 0..1
+            - relais: 0/1 (souvent)
         """
         it_enc = urllib.parse.quote(it_id, safe="")
-        path = f"/intelligent-things/{it_enc}/actuator/{actuator_id}/state"
+        act_enc = urllib.parse.quote(actuator_id, safe="")  # <-- IMPORTANT
+        path = f"/intelligent-things/{it_enc}/actuator/{act_enc}/state"
         url = f"{self.base_url.rstrip('/')}/{path.lstrip('/')}"
 
         payload = {"value": float(value), "duration": int(duration_ms)}
@@ -97,11 +107,11 @@ class HemisClient:
                 timeout=aiohttp.ClientTimeout(total=20),
             ) as resp:
                 text = await resp.text()
+
                 if resp.status == 401:
                     await self._authenticate()
-                    return await self.set_actuator_value(
-                        it_id, actuator_id, value, duration_ms
-                    )
+                    # retry once with same params (now encoded correctly)
+                    return await self.set_actuator_value(it_id, actuator_id, value, duration_ms)
 
                 if resp.status >= 400:
                     raise HemisApiError(f"PUT {url} -> {resp.status}: {text[:300]}")

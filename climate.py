@@ -11,6 +11,8 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
+from homeassistant.const import UnitOfTemperature
+from homeassistant.components.climate import HVACAction
 
 from .const import DOMAIN
 from .coordinator import HemisCoordinator
@@ -102,6 +104,8 @@ class UbiantHemisPilotWireClimate(CoordinatorEntity[HemisCoordinator], ClimateEn
     _attr_supported_features = ClimateEntityFeature.PRESET_MODE
     _attr_hvac_modes = [HVACMode.HEAT, HVACMode.OFF]
     _attr_preset_modes = PRESETS
+    _attr_temperature_unit = UnitOfTemperature.CELSIUS
+    _attr_should_poll = False
 
     def __init__(self, coordinator: HemisCoordinator, entry: ConfigEntry, actuator: dict) -> None:
         super().__init__(coordinator)
@@ -130,6 +134,14 @@ class UbiantHemisPilotWireClimate(CoordinatorEntity[HemisCoordinator], ClimateEn
         # away = "OFF" côté HA (plus logique visuellement)
         preset = _value_to_preset(self._get_actuator_live(), v)
         return HVACMode.OFF if preset == PRESET_AWAY else HVACMode.HEAT
+    
+    @property
+    def hvac_action(self) -> HVACAction | None:
+        mode = self.hvac_mode
+        if mode is None:
+            return None
+        return HVACAction.OFF if mode == HVACMode.OFF else HVACAction.HEATING
+
 
     async def async_set_hvac_mode(self, hvac_mode: HVACMode) -> None:
         # OFF -> away, HEAT -> eco par défaut

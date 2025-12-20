@@ -8,4 +8,4 @@ CONF_TOKEN = "token"
 
 DEFAULT_SCAN_INTERVAL = timedelta(seconds=30)
 
-PLATFORMS = ["sensor", "cover"]
+PLATFORMS = ["sensor", "cover", "light", "climate"]

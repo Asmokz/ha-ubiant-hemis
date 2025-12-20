@@ -58,7 +58,7 @@ async def async_setup_entry(
 
 
 class UbiantHemisRelayLight(CoordinatorEntity[HemisCoordinator], LightEntity):
-    _attr_supported_features = LightEntityFeature.ONOFF
+    pass
 
     def __init__(self, coordinator: HemisCoordinator, entry: ConfigEntry, actuator: dict) -> None:
         super().__init__(coordinator)

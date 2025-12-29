@@ -32,4 +32,6 @@ The integration automatically discovers:
 - Pilot wire heaters (3 modes)
 
 ## Disclaimer
-This project is not affiliated with Ubiant or Flexom and is a beta that is not tested on multiple configurations.
+This project is not affiliated with Ubiant or Flexom and is a beta that was not tested on multiple configurations.
+A lot of works have been done with the help of ChatGPT so don't hesitate to modify and notify for any improvements.
+As Flexom is no longer maintained, the solution provided here will likely be static and not updated, new features will come with personal needs.

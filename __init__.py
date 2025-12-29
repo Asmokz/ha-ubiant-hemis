@@ -5,7 +5,11 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
 from .api import HemisClient
-from .const import DOMAIN, PLATFORMS, CONF_BASE_URL, CONF_BUILDING_ID, CONF_TOKEN
+from .const import (
+    DOMAIN, PLATFORMS,
+    CONF_BASE_URL, CONF_BUILDING_ID, CONF_TOKEN,
+    CONF_EMAIL, CONF_PASSWORD, AUTH_BASE_URL
+)
 from .coordinator import HemisCoordinator
 
 async def async_setup(hass: HomeAssistant, config: dict) -> bool:
@@ -23,13 +27,14 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     session = async_get_clientsession(hass)
 
     client = HemisClient(
-        base_url=entry.data[CONF_BASE_URL],
-        building_id=entry.data[CONF_BUILDING_ID],
-        token=entry.data[CONF_TOKEN],
-        email=entry.data["email"],
-        password=entry.data["password"],
-        session=session,
-    )
+    base_url=entry.data[CONF_BASE_URL],
+    building_id=entry.data[CONF_BUILDING_ID],
+    token=entry.data[CONF_TOKEN],
+    email=entry.data[CONF_EMAIL],
+    password=entry.data[CONF_PASSWORD],
+    auth_base_url=AUTH_BASE_URL,
+    session=session,
+)
 
     coordinator = HemisCoordinator(hass, client)
     await coordinator.async_config_entry_first_refresh()

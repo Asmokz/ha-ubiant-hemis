@@ -1,0 +1,6 @@
+{
+  "name": "Ubiant Hemis (Flexom)",
+  "content_in_root": false,
+  "domains": ["ubiant_hemis"],
+  "render_readme": true
+}

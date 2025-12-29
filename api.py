@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import asyncio
 from dataclasses import dataclass
-from importlib.resources import path
 from typing import Any
 import urllib.parse
 
@@ -15,16 +14,20 @@ class HemisApiError(Exception):
 
 @dataclass
 class HemisClient:
-    base_url: str
-    building_id: str
-    token: str
-    session: aiohttp.ClientSession
+    # HEMIS API (devices)
+    base_url: str              # ex: https://.../hemis/rest
+    building_id: str           # header Building-Id
+    token: str                 # Bearer token
+
+    # AUTH (hemisphere.ubiant.com)
     email: str
     password: str
+    auth_base_url: str         # https://hemisphere.ubiant.com
 
-    def __post_init__(self) -> None:
-        self._auth_lock = asyncio.Lock()
-    
+    session: aiohttp.ClientSession
+
+    # lock pour éviter que 10 calls 401 re-auth en même temps
+    _auth_lock: asyncio.Lock = asyncio.Lock()
 
     def _headers(self) -> dict[str, str]:
         return {
@@ -32,38 +35,79 @@ class HemisClient:
             "Building-Id": self.building_id,
             "Accept": "application/json",
         }
-    
 
-    async def _authenticate(self) -> None:
-        async with self._auth_lock:
-            async with self.session.post(
-                "https://hemisphere.ubiant.com/users/signin",
-                json={
-                    "email": self.email,
-                    "password": self.password,
-                },
+    async def _request_json(self, method: str, url: str, *, headers=None, json_body=None) -> Any:
+        try:
+            async with self.session.request(
+                method,
+                url,
+                headers=headers,
+                json=json_body,
                 timeout=aiohttp.ClientTimeout(total=20),
             ) as resp:
                 text = await resp.text()
                 if resp.status >= 400:
-                    raise HemisApiError(f"Auth failed: {resp.status} {text[:200]}")
+                    raise HemisApiError(f"{method} {url} -> {resp.status}: {text[:300]}")
+                return await resp.json(content_type=None)
+        except asyncio.TimeoutError as e:
+            raise HemisApiError(f"Timeout calling {url}") from e
+        except aiohttp.ClientError as e:
+            raise HemisApiError(f"HTTP error calling {url}: {e}") from e
 
-                data = await resp.json()
-                # ⚠️ adapte la clé si nécessaire (token / accessToken)
-                self.token = data["token"]
+    async def _authenticate(self) -> None:
+        """Re-login sur hemisphere.ubiant.com et met à jour self.token."""
+        async with self._auth_lock:
+            # Si un autre call a déjà refresh, on évite un second login.
+            # (Optionnel: tu peux mémoriser un timestamp)
+            signin_url = f"{self.auth_base_url.rstrip('/')}/users/signin"
+            payload = {"email": self.email, "password": self.password}
+
+            data = await self._request_json(
+                "POST",
+                signin_url,
+                headers={"Content-Type": "application/json", "Accept": "application/json"},
+                json_body=payload,
+            )
+
+            token = data.get("token")
+            if not token:
+                raise HemisApiError("Signin succeeded but no token found in response")
+            self.token = token
+
+    async def discover_building_and_base_url(self) -> tuple[str, str]:
+        """Retourne (building_id, hemis_base_url) depuis /buildings/mine/infos."""
+        infos_url = f"{self.auth_base_url.rstrip('/')}/buildings/mine/infos"
+        data = await self._request_json(
+            "GET",
+            infos_url,
+            headers={"Authorization": f"Bearer {self.token}", "Accept": "application/json"},
+        )
+
+        # Réponse = liste
+        if not isinstance(data, list) or not data:
+            raise HemisApiError("buildings/mine/infos returned an empty list")
+
+        first = data[0]
+        building_id = first.get("buildingId")
+        base_url = first.get("hemis_base_url")
+
+        if not building_id or not base_url:
+            raise HemisApiError("Missing buildingId or hemis_base_url in buildings/mine/infos response")
+
+        return building_id, base_url
 
     async def _get_json(self, path: str) -> Any:
         url = f"{self.base_url.rstrip('/')}/{path.lstrip('/')}"
         try:
             async with self.session.get(url, headers=self._headers(), timeout=aiohttp.ClientTimeout(total=20)) as resp:
                 text = await resp.text()
+
                 if resp.status == 401:
                     await self._authenticate()
                     return await self._get_json(path)
 
                 if resp.status >= 400:
                     raise HemisApiError(f"GET {url} -> {resp.status}: {text[:300]}")
-                # Certains endpoints peuvent renvoyer text/plain; on force json
                 return await resp.json(content_type=None)
         except asyncio.TimeoutError as e:
             raise HemisApiError(f"Timeout calling {url}") from e
@@ -76,25 +120,9 @@ class HemisClient:
     async def get_actuators(self) -> list[dict[str, Any]]:
         return await self._get_json("/intelligent-things/actuators")
 
-    # ⚠️ ACTIONS: on met un stub propre, à compléter quand tu confirmes l’endpoint.
-    async def set_actuator_value(
-        self,
-        it_id: str,
-        actuator_id: str,
-        value: float,
-        duration_ms: int = 30000,
-    ) -> None:
-        """
-        PUT /intelligent-things/{itId}/actuator/{actuatorId}/state
-        - itId doit être URL-encodé (contient : et %)
-        - actuatorId peut contenir # (=> doit être encodé sinon 405)
-        - value:
-            - volets: 0..1
-            - relais: 0/1 (souvent)
-        """
+    async def set_actuator_value(self, it_id: str, actuator_id: str, value: float, duration_ms: int = 30000) -> None:
         it_enc = urllib.parse.quote(it_id, safe="")
-        act_enc = urllib.parse.quote(actuator_id, safe="")  # <-- IMPORTANT
-        path = f"/intelligent-things/{it_enc}/actuator/{act_enc}/state"
+        path = f"/intelligent-things/{it_enc}/actuator/{actuator_id}/state"
         url = f"{self.base_url.rstrip('/')}/{path.lstrip('/')}"
 
         payload = {"value": float(value), "duration": int(duration_ms)}
@@ -110,7 +138,6 @@ class HemisClient:
 
                 if resp.status == 401:
                     await self._authenticate()
-                    # retry once with same params (now encoded correctly)
                     return await self.set_actuator_value(it_id, actuator_id, value, duration_ms)
 
                 if resp.status >= 400:

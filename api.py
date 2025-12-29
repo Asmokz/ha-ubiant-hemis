@@ -120,9 +120,12 @@ class HemisClient:
     async def get_actuators(self) -> list[dict[str, Any]]:
         return await self._get_json("/intelligent-things/actuators")
 
+
     async def set_actuator_value(self, it_id: str, actuator_id: str, value: float, duration_ms: int = 30000) -> None:
         it_enc = urllib.parse.quote(it_id, safe="")
-        path = f"/intelligent-things/{it_enc}/actuator/{actuator_id}/state"
+        actuator_enc = urllib.parse.quote(actuator_id, safe="")  # <-- IMPORTANT
+
+        path = f"/intelligent-things/{it_enc}/actuator/{actuator_enc}/state"
         url = f"{self.base_url.rstrip('/')}/{path.lstrip('/')}"
 
         payload = {"value": float(value), "duration": int(duration_ms)}
@@ -146,3 +149,4 @@ class HemisClient:
             raise HemisApiError(f"Timeout calling {url}") from e
         except aiohttp.ClientError as e:
             raise HemisApiError(f"HTTP error calling {url}: {e}") from e
+

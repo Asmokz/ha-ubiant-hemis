@@ -1,0 +1,30 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Ubiant Hemis (Flexom)",
+        "description": "Connectez-vous avec les identifiants de votre compte Flexom.",
+        "data": {
+          "email": "Email",
+          "password": "Mot de passe"
+        }
+      },
+      "reauth_confirm": {
+        "title": "Ré-authentification",
+        "description": "Les identifiants de {email} ne sont plus valides. Saisissez à nouveau votre mot de passe.",
+        "data": {
+          "password": "Mot de passe"
+        }
+      }
+    },
+    "error": {
+      "auth_failed": "Identifiants invalides ou accès refusé.",
+      "cannot_connect": "Impossible de joindre les serveurs Ubiant.",
+      "unknown": "Erreur inattendue."
+    },
+    "abort": {
+      "already_configured": "Ce bâtiment est déjà configuré.",
+      "reauth_successful": "Ré-authentification réussie."
+    }
+  }
+}

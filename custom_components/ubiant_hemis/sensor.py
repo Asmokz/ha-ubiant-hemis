@@ -3,20 +3,20 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
-from homeassistant.components.sensor import SensorEntity, SensorDeviceClass
-from homeassistant.config_entries import ConfigEntry
+from homeassistant.components.sensor import SensorDeviceClass, SensorEntity, SensorStateClass
+from homeassistant.const import PERCENTAGE, UnitOfTemperature
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .const import DOMAIN
+from . import HemisConfigEntry
 from .coordinator import HemisCoordinator
 
 
 def _safe_float(v):
     try:
         return float(v)
-    except Exception:
+    except (TypeError, ValueError):
         return None
 
 
@@ -25,20 +25,27 @@ class HemisSensorDescriptor:
     key: str
     device_class: SensorDeviceClass | None
     unit: str | None
+    state_class: SensorStateClass | None = None
 
 
 SUPPORTED = {
-    "TMP": HemisSensorDescriptor("TMP", SensorDeviceClass.TEMPERATURE, "°C"),
-    "BATTERY_LEVEL": HemisSensorDescriptor("BATTERY_LEVEL", SensorDeviceClass.BATTERY, "%"),
+    "TMP": HemisSensorDescriptor(
+        "TMP", SensorDeviceClass.TEMPERATURE, UnitOfTemperature.CELSIUS, SensorStateClass.MEASUREMENT
+    ),
+    "BATTERY_LEVEL": HemisSensorDescriptor(
+        "BATTERY_LEVEL", SensorDeviceClass.BATTERY, PERCENTAGE, SensorStateClass.MEASUREMENT
+    ),
     "SWS": HemisSensorDescriptor("SWS", None, None),
 }
 
 
-async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback) -> None:
-    coordinator: HemisCoordinator = hass.data[DOMAIN][entry.entry_id]["coordinator"]
+async def async_setup_entry(
+    hass: HomeAssistant, entry: HemisConfigEntry, async_add_entities: AddEntitiesCallback
+) -> None:
+    coordinator = entry.runtime_data
 
     entities: list[HemisSensor] = []
-    for s in coordinator.data.sensors:
+    for s in (coordinator.data.sensors if coordinator.data else []):
         state = s.get("state") or {}
         sid = state.get("id")
         if sid not in SUPPORTED:
@@ -60,11 +67,13 @@ class HemisSensor(CoordinatorEntity[HemisCoordinator], SensorEntity):
         desc = SUPPORTED[state_id]
         self._attr_device_class = desc.device_class
         self._attr_native_unit_of_measurement = desc.unit
+        self._attr_state_class = desc.state_class
 
     @property
     def native_value(self):
         # Recherche du capteur courant dans le snapshot
-        current = next((x for x in self.coordinator.data.sensors if x.get("id") == self._sensor_id), None)
+        data = self.coordinator.data
+        current = next((x for x in (data.sensors if data else []) if x.get("id") == self._sensor_id), None)
         if not current:
             return None
         st = current.get("state") or {}

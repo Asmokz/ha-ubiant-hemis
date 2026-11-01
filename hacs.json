@@ -1,6 +1,5 @@
 {
   "name": "Ubiant Hemis (Flexom)",
-  "content_in_root": false,
-  "domains": ["ubiant_hemis"],
+  "homeassistant": "2024.12.0",
   "render_readme": true
 }

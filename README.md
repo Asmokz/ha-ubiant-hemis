@@ -7,16 +7,24 @@ Custom Home Assistant integration for Ubiant / Flexom smart buildings.
 - Covers (rollers / shutters)
 - Lights (relay-based on/off)
 - Heating (pilot wire – away / eco / comfort)
-- Automatic token renewal
+- Automatic token renewal (the renewed token is saved)
+- Re-authentication from the UI if your password changes
 
 ## Installation (HACS)
 1. Open HACS
-2. Integrations → Custom repositories
+2. Top-right menu (⋮) → **Custom repositories**
 3. Add repository:
-   - URL: https://github.com/Asmokz/ha-ubiant-hemis
-   - Category: Integration
-4. Install "Ubiant Hemis"
+   - URL: `https://github.com/Asmokz/ha-ubiant-hemis`
+   - Type: **Integration**
+4. Search for "Ubiant Hemis (Flexom)" in HACS and download it
 5. Restart Home Assistant
+6. Settings → Devices & services → **Add integration** → "Ubiant Hemis"
+
+Requires Home Assistant 2024.12 or newer.
+
+## Manual installation
+Copy the `custom_components/ubiant_hemis` folder into the `custom_components`
+folder of your Home Assistant configuration, then restart Home Assistant.
 
 ## Configuration
 - Email
